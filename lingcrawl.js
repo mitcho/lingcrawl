@@ -33,7 +33,8 @@ function dl(id, filename, cb) { // filename = current.pdf | index.html | etc. (o
 	// todo: skip this for updated files? The issue is that lingbuzz doesn't seem to send back Last-Modified, so we can't do this intelligently.
 	if ( fs.existsSync(archivedir + filename) ) {
 		if ( typeof cb == 'function' )
-			return cb( id, filename, archivedir + filename );
+			cb( id, filename, archivedir + filename );
+		return
 	}
 	
 	var flags = process.argv.length > 3 ? process.argv[3] : '-N';
@@ -76,7 +77,7 @@ dl(id, 'index.html', function ( id, filename, filepath ) {
 
 	maxrev++;
 	var currentfile = 'v' + maxrev + currentext;
-	console.log('current = ' + currentfile);
+// 	console.log('current = ' + currentfile);
 
 	dl(id, currentfile);
 });
