@@ -6,7 +6,7 @@ Dedicated to the public domain, Michael Yoshitaka Erlewine <mitcho@mitcho.com> 2
 
 ## Prerequisites
 
-lingcrawl is written in JavaScript. Install node.js and the package cheerio via npm.
+lingcrawl is written in JavaScript. Install node.js and the package `cheerio` via npm. The command-line tool `wget` is also required.
 
 ## Basic usage
 
