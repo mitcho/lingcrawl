@@ -3,9 +3,6 @@
 // Dedicated to the public domain, 2015
 // http://github.com/mitcho/lingcrawl
 
-// Usage: in bash, something like
-// for i in {1..2742}; do node lingcrawl.js $i; done;
-
 var fs = require("fs"),
 	exec = require('child_process').exec,
 	cheerio = require('cheerio'),
