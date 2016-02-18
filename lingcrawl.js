@@ -10,12 +10,14 @@ var fs = require("fs"),
 
 const LINGBUZZ = 'http://ling.auf.net/lingbuzz',
 	HEADERS = {'User-Agent': 'lingcrawl'},
-	ARCHIVEPATH = './archive/';
+	ARCHIVEPATH = './archive/',
+	CLEANHTML = "sed -i '' -E -e 's/\\?_s=[A-Za-z0-9_-]+(&amp;_k=[A-Za-z0-9_-]+&amp;[0-9])?\\\"/\\\"/g' ";
 
 function pad(n, digits) {
 	n += '';
 	return new Array(digits - n.length + 1).join('0') + n;
 }
+
 function dl(id, filename, cb) { // filename = current.pdf | index.html | etc. (optional ?_s=)
 	id = pad(id, 6);
 	var targetpath = LINGBUZZ + '/' + id + '/';
@@ -44,10 +46,24 @@ function dl(id, filename, cb) { // filename = current.pdf | index.html | etc. (o
 				console.log('🚫  ' + id + ' ' + filename);
 			else
 				console.log(err);
-		} else {
-			console.log('✅  ' + id + ' ' + filename);
+			return;
+		}
+
+		console.log('✅  ' + id + ' ' + filename);
+
+		var next = function() {
 			if ( typeof cb == 'function' )
 				return cb( id, filename, archivedir + filename );
+		}
+
+		if ( filename == 'index.html' ) { // index.html files need to be cleaned up
+			exec(CLEANHTML + archivedir + filename, function(err, stdout, stderr) {
+				if (err)
+					console.log('⚠️  ' + id + ' on sed: ', err);
+				next();
+			});
+		} else {
+			next();
 		}
 	});
 }
