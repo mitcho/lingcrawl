@@ -105,11 +105,9 @@ var q = async.queue(function (task, callback) {
 		return cb( id, filename, archivedir + filename );
 	}
 	
-	// todo: add flag to add wget flag -N ?
-
 	console.log('🐌  ' + targetpath + ' ...');
 
-	var child = exec('wget -P ' + archivedir + ' -w 1m --random-wait ' + targetpath, function(err, stdout, stderr) {
+	var child = exec('wget -N -P ' + archivedir + ' -w 1m --random-wait ' + targetpath, function(err, stdout, stderr) {
 		if (err) {
 			if ( err.code == 8 ) { // wget exit code 8 = server error
 				console.log('🚫  ' + id + ' ' + filename + "\trequeuing...");
