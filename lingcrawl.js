@@ -72,7 +72,19 @@ var q = async.queue(function (task, callback) {
 			// load cheerio, the faux-jQuery
 			var $ = cheerio.load(fs.readFileSync(archivedir + filename));
 
-			var current = $('table tr:nth-child(1) > td:nth-child(2) a').attr('href');
+			// used to be 'table tr:nth-child(1) > td:nth-child(2) a'
+			// but this got stuck on 1454, starting 20160716
+			var a = $('tr').first().find('td a');
+			
+			if (a.length > 1)
+				console.log('⚠️  Matched more than one "tr:first td a"');
+
+			if (a.length == 0) {
+				console.log('🚫  Found no "tr:first td a"!!');
+				return process.nextTick(callback);
+			}
+			
+			var current = a.attr('href');
 			var currentfile = path.basename(current);
 			var currentext = path.extname(current).replace(/\?.*$/,'');
 			var previousList = $('table tr:nth-child(5) > td:nth-child(2) a');
@@ -93,10 +105,10 @@ var q = async.queue(function (task, callback) {
 
 			q.push({id: id, filename: currentfile});
 
-			callback();
+			process.nextTick(callback);
 		}
 	} else {
-		cb = callback;
+		cb = function() {process.nextTick(callback);};
 	}
 
 	// don't redownload existing files
@@ -114,7 +126,7 @@ var q = async.queue(function (task, callback) {
 				q.push({id: id, filename: filename});
 			} else
 				console.log(err);
-			return callback();
+			return process.nextTick(callback);
 		}
 
 		console.log('✅  ' + id + ' ' + filename);
