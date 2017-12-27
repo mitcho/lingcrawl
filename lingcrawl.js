@@ -76,8 +76,14 @@ var q = async.queue(function (task, callback) {
 			// but this got stuck on 1454, starting 20160716
 			var a = $('tr').first().find('td a');
 			
-			if (a.length > 1)
+			if (a.length > 1) {
 				console.log('⚠️  Matched more than one "tr:first td a"');
+				// todo: why doesn't this work?
+				if (a.find('[href*=".pdf"]').length > 1) {
+					console.log('  Limiting to "tr:first td a" with .pdf');
+					a = a.find('[href*=".pdf"]');
+				}
+			}
 
 			if (a.length == 0) {
 				console.log('🚫  Found no "tr:first td a"!!');
