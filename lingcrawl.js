@@ -1,12 +1,12 @@
 // lingcrawl.js
 // Michael Yoshitaka Erlewine <mitcho@mitcho.com>
-// Dedicated to the public domain, 2015
+// Dedicated to the public domain, 2015--2018
 // http://github.com/mitcho/lingcrawl
 
 // option parsing using yargs:
 var argv = require('yargs')
-	.usage('Usage: $0 <start ID> (<end ID>) [options]')
-	.demand(1) // require an ID
+	.usage('Usage: $0 (<start ID>) (<end ID>) [options]')
+	.demand(0) // require an ID
 	.option('c', {
 		alias: 'concurrent',
 		default: 10
@@ -16,11 +16,11 @@ var argv = require('yargs')
 		default: false,
 		boolean: true
 	})
-	.option('f', {
-		alias: 'forceindex',
+	.option('u', {
+		alias: 'useindex',
 		default: false,
 		boolean: true,
-		describe: 'Ignore cached index.html files'
+		describe: 'Use cached index.html files'
 	})
 	.option('F', {
 		alias: 'forceall',
@@ -33,6 +33,7 @@ var argv = require('yargs')
 
 var fs = require("fs"),
 	exec = require('child_process').exec,
+	execSync = require('child_process').execSync,
 	cheerio = require('cheerio'),
 	path = require('path'),
 	async = require('async');
@@ -42,8 +43,28 @@ const LINGBUZZ = 'http://ling.auf.net/lingbuzz',
 	ARCHIVEPATH = './archive/',
 	CLEANHTML = "sed -i '' -E -e 's/\\?_s=[A-Za-z0-9_-]+(&amp;_k=[A-Za-z0-9_-]+&amp;[0-9])?\\\"/\\\"/g' ";
 
-var start = argv._[0];
+var start = argv._[0] || 1;
 var end = (argv._.length > 1) ? argv._[1] : start;
+
+// if no settings were given, find the latest NEW entry:
+if (argv._.length == 0) {
+	
+	let targetpath = LINGBUZZ + '/lingbuzz'; // index file is /lingbuzz, apparently
+	
+	console.log('🐌  ' + targetpath + ' ...');
+
+	var child = execSync('wget -q -N -P /tmp -w 1m --random-wait ' + targetpath);
+
+	let file = fs.readFileSync('/tmp/lingbuzz');
+	let match = String(file).match('<b>new<\/b>&nbsp;<\/td><td><a href="\/lingbuzz\/(\\d+)\/current\.');
+
+	if (match) {
+		end = parseInt(match[1]);
+		console.log('✅  index new: ' + end);
+	} else {
+		console.error('🚫  found no end number');
+	}
+}
 
 function pad(n, digits) {
 	n += '';
@@ -119,7 +140,7 @@ var q = async.queue(function (task, callback) {
 
 	// don't redownload existing files
 	// todo: skip this for updated files? The issue is that lingbuzz doesn't seem to send back Last-Modified, so we can't do this intelligently.
-	if ( !argv.F && !(argv.f && filename == 'index.html') && fs.existsSync(archivedir + filename) ) {
+	if ( !argv.F && !(!argv.u && filename == 'index.html') && fs.existsSync(archivedir + filename) ) {
 		return cb( id, filename, archivedir + filename );
 	}
 	
