@@ -28,6 +28,11 @@ var argv = require('yargs')
 		boolean: true,
 		describe: 'Ignore all cached files'
 	})
+	.option('q', {
+		alias: 'quiet',
+		default: false,
+		boolean: true
+	})
 	.help('help')
 	.argv;
 
@@ -38,7 +43,7 @@ var fs = require("fs"),
 	path = require('path'),
 	async = require('async');
 
-const LINGBUZZ = 'http://ling.auf.net/lingbuzz',
+const LINGBUZZ = 'https://ling.auf.net/lingbuzz',
 	HEADERS = {'User-Agent': 'lingcrawl'},
 	ARCHIVEPATH = './archive/',
 	CLEANHTML = "sed -i '' -E -e 's/\\?_s=[A-Za-z0-9_-]+(&amp;_k=[A-Za-z0-9_-]+&amp;[0-9])?\\\"/\\\"/g' ";
@@ -51,7 +56,8 @@ if (argv._.length == 0) {
 	
 	let targetpath = LINGBUZZ + '/lingbuzz'; // index file is /lingbuzz, apparently
 	
-	console.log('🐌  ' + targetpath + ' ...');
+	if (!argv.q)
+		console.log('🐌  ' + targetpath + ' ...');
 
 	var child = execSync('wget -q -N -P /tmp -w 1m --random-wait ' + targetpath);
 
@@ -60,7 +66,8 @@ if (argv._.length == 0) {
 
 	if (match) {
 		end = parseInt(match[1]);
-		console.log('✅  index new: ' + end);
+		if (!argv.q)
+			console.log('✅  index new: ' + end);
 	} else {
 		console.error('🚫  found no end number');
 	}
@@ -82,7 +89,7 @@ var q = async.queue(function (task, callback) {
 
 	var filename = task.filename; // filename = current.pdf | index.html | etc. (optional ?_s=)
 
-	if (argv.v)
+	if (argv.v && !argv.q)
 		console.log(id, filename);
 	
 	targetpath += filename;
@@ -98,16 +105,21 @@ var q = async.queue(function (task, callback) {
 			var a = $('tr').first().find('td a');
 			
 			if (a.length > 1) {
-				console.log('⚠️  Matched more than one "tr:first td a"');
+				if (!argv.q)
+					console.log('⚠️  Matched more than one "tr:first td a"');
 				// todo: why doesn't this work?
 				if (a.find('[href*=".pdf"]').length > 1) {
-					console.log('  Limiting to "tr:first td a" with .pdf');
+					if (!argv.q)
+						console.log('  Limiting to "tr:first td a" with .pdf');
 					a = a.find('[href*=".pdf"]');
 				}
 			}
 
 			if (a.length == 0) {
-				console.log('🚫  Found no "tr:first td a"!!');
+				if (argv.q)
+					console.log('🚫  Found no "tr:first td a" in ' + id + '!!');
+				else
+					console.log('🚫  Found no "tr:first td a"!!');
 				return process.nextTick(callback);
 			}
 			
@@ -120,8 +132,7 @@ var q = async.queue(function (task, callback) {
 				var link = $(previous).attr('href');
 				var revfile = link.replace(/^\/lingbuzz\/(\d+)\/(v\d+\.\w+)(\?.*)?$/, '$2');
 				var revnum = parseInt(revfile.replace(/^v(\d+)\.\w+$/, '$1'));
-
-				q.push({id: id, filename: revfile});
+				q.push({id: id, filename: revfile, try: 1});
 		
 				maxrev = Math.max(maxrev, revnum);
 			});
@@ -130,8 +141,7 @@ var q = async.queue(function (task, callback) {
 			var currentfile = 'v' + maxrev + currentext;
 		// 	console.log('current = ' + currentfile);
 
-			q.push({id: id, filename: currentfile});
-
+			q.push({id: id, filename: currentfile, try: 1});
 			process.nextTick(callback);
 		}
 	} else {
@@ -143,24 +153,32 @@ var q = async.queue(function (task, callback) {
 	if ( !argv.F && !(!argv.u && filename == 'index.html') && fs.existsSync(archivedir + filename) ) {
 		return cb( id, filename, archivedir + filename );
 	}
-	
-	console.log('🐌  ' + targetpath + ' ...');
+
+	if (!argv.q)
+		console.log('🐌  ' + targetpath + ' ...');
 
 	var child = exec('wget -N -P ' + archivedir + ' -w 1m --random-wait ' + targetpath, function(err, stdout, stderr) {
 		if (err) {
 			if ( err.code == 8 ) { // wget exit code 8 = server error
-				console.log('🚫  ' + id + ' ' + filename + "\trequeuing...");
-				q.push({id: id, filename: filename});
+				if ( task.try >= 5 ) {
+					if (!argv.q)
+						console.log('🚫  ' + id + ' ' + filename + "\tgiving up after 5 tries");
+				} else {
+					if (!argv.q)
+						console.log('🚫  ' + id + ' ' + filename + "\trequeuing...");
+					q.push({id: id, filename: filename, try: task.try + 1});
+				}
 			} else
 				console.log(err);
 			return process.nextTick(callback);
 		}
 
-		console.log('✅  ' + id + ' ' + filename);
+		if (!argv.q)
+			console.log('✅  ' + id + ' ' + filename);
 
 		if ( filename == 'index.html' ) { // index.html files need to be cleaned up
 			exec(CLEANHTML + archivedir + filename, function(err, stdout, stderr) {
-				if (err)
+				if (err && !argv.q)
 					console.log('⚠️  ' + id + ' on sed: ', err);
 				cb( id, filename );
 			});
@@ -173,7 +191,8 @@ var q = async.queue(function (task, callback) {
 
 // register final callback
 q.drain = function() {
-    console.log('all items have been processed');
+	if (!argv.q)
+		console.log('all items have been processed');
 }
 
 // queue up IDs
